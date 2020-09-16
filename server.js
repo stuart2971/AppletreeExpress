@@ -160,7 +160,7 @@ app.get("/success", (req, res) => {
           if(keys[j] === "item") continue;
           function checkVeggies(veggie){
             if(keys[j] == veggie){
-              veggies.push(veggie)
+              veggies.push(veggie);
               return true
             }
             return false
