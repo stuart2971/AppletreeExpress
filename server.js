@@ -122,13 +122,8 @@ app.post("/create-checkout-session", async (req, res) => {
     line_items: converted_items,
     mode: "payment",
     success_url: "http://localhost:3000/success",
-    cancel_url: "https://example.com/cancel"
+    cancel_url: "http://localhost:3000/order-page.html"
   });
-
-  const customer = await stripe.customers.retrieve(
-    'cus_I1uuHLxzdan7g3'
-  );
-  console.log(customer)
   res.json({ id: session.id });
   
 });
@@ -155,7 +150,7 @@ app.get("/success", (req, res) => {
     let email = "";
 
     for(let i = 0; i < ORDER.length; i++){
-      let keys = Object.keys(ORDER[i])
+      let keys = Object.keys(ORDER[i]);
       email += `Item: ${ORDER[i].item}\n`
       if(keys.length != 1){ 
         let veggies = [];
