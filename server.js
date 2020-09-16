@@ -187,5 +187,4 @@ app.get("/success", (req, res) => {
   });
 })
 //Port Stuff
-const PORT = process.env.port || 3000
-app.listen(PORT, () => console.log("We're Online!"))
+app.listen(process.env.PORT || 3000, () => console.log("We're Online!"))
