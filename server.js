@@ -5,6 +5,7 @@ const nodemailer = require('nodemailer');
 
 const app = express()
 
+require('dotenv').config()
 //Set static folder
 app.use(express.static(path.join(__dirname, "public")))
 //I dont know
@@ -12,7 +13,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(bodyParser.raw());
 //Stripe Stuff
-const stripe = require('stripe')('sk_test_51HPrfXFFjnckJleAvp727UGzpGA8iOM10ihFXIaRsT8ufFHvNvoDXhnVTjwBvh8GVWhYXk8f6gSTJRTEKQ5cLgo600n4IVTUru');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 let ORDER = undefined;
 
@@ -124,27 +125,71 @@ app.post("/create-checkout-session", async (req, res) => {
     cancel_url: "https://example.com/cancel"
   });
 
+  const customer = await stripe.customers.retrieve(
+    'cus_I1uuHLxzdan7g3'
+  );
+  console.log(customer)
   res.json({ id: session.id });
+  
 });
 
 app.get("/success", (req, res) => {
-  console.log(typeof JSON.stringify(ORDER))
   res.sendFile(__dirname + '/public/index.html');
 
   var transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-      user: 'youremail@gmail.com',
-      pass: 'yourpassword'
+      user: process.env.GMAIL_USERNAME,
+      pass: process.env.GMAIL_PASSWORD
     }
   });
   
   var mailOptions = {
-    from: 'youremail@gmail.com',
-    to: 'myfriend@yahoo.com',
-    subject: 'Sending Email using Node.js',
-    text: 'That was easy!'
+    from: process.env.GMAIL_USERNAME,
+    to: process.env.SEND_ORDER_TO_GMAIL,
+    subject: 'NEW ORDER',
+    text: makeEmail()
   };
+  
+  function makeEmail(){
+    let email = "";
+
+    for(let i = 0; i < ORDER.length; i++){
+      let keys = Object.keys(ORDER[i])
+      email += `Item: ${ORDER[i].item}\n`
+      if(keys.length != 1){ 
+        let veggies = [];
+        for(let j = 0; j < keys.length; j++){
+          if(keys[j] === "item") continue;
+          function checkVeggies(veggie){
+            if(keys[j] == veggie){
+              veggies.push(veggie)
+              return true
+            }
+            return false
+          }
+          if(checkVeggies("lettuce")) continue
+          if(checkVeggies("tomato"))continue
+          if(checkVeggies("cucumber"))continue
+          if(checkVeggies("onion"))continue
+          email += `${keys[j]}: ${ORDER[i][keys[j]]}\n`
+        }
+        email += `Veggies: ${veggies.join(", ")}\n`
+      }
+      email += "\n"
+    }
+    
+    
+    return email;
+  }
+
+  transporter.sendMail(mailOptions, function(error, info){
+    if (error) {
+      console.log(error);
+    } else {
+      console.log('Email sent: ' + info.response);
+    }
+  });
 })
 //Port Stuff
 const PORT = 3000 || process.env.port
