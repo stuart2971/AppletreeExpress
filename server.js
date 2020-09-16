@@ -121,8 +121,8 @@ app.post("/create-checkout-session", async (req, res) => {
     payment_method_types: ["card"],
     line_items: converted_items,
     mode: "payment",
-    success_url: "http://localhost:3000/success",
-    cancel_url: "http://localhost:3000/order-page.html"
+    success_url: "https://appletreeexpress.herokuapp.com/success",
+    cancel_url: "https://appletreeexpress.herokuapp.com/order-page.html"
   });
   res.json({ id: session.id });
   
