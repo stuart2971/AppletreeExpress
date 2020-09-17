@@ -2,9 +2,12 @@ const path = require("path")
 const express = require("express")
 const bodyParser = require('body-parser');
 const nodemailer = require('nodemailer');
+const GoogleSpreadsheet = require("google-spreadsheet")
+const { promisify } = require("util")
 
 const app = express()
 
+const creds = require("./client_secret.json")
 require('dotenv').config()
 //Set static folder
 app.use(express.static(path.join(__dirname, "public")))
@@ -121,72 +124,103 @@ app.post("/create-checkout-session", async (req, res) => {
     payment_method_types: ["card"],
     line_items: converted_items,
     mode: "payment",
-    success_url: "https://appletreeexpress.herokuapp.com/success",
+    success_url: "http://localhost:3000/success",
     cancel_url: "https://appletreeexpress.herokuapp.com/order-page.html"
   });
   res.json({ id: session.id });
   
 });
 
-app.get("/success", (req, res) => {
-  res.sendFile(__dirname + '/public/index.html');
+async function accessSpreadsheet(){
+  const doc = new GoogleSpreadsheet("1SeXx9TzKInDGV8rtiYHNI1v0coGpTop3JCiCDTav7LY")
+  await promisify(doc.useServiceAccountAuth)(creds)
+  const info = await promisify(doc.getInfo)()
+  const sheet = info.worksheets[0]
+  console.log(`Title: ${sheet.title}.  Rows: ${sheet.rowCount}`)
+  // console.log(ORDER)
+  for(let i = 0; i < ORDER.length; i++){
 
-  var transporter = nodemailer.createTransport({
-    service: 'smtp.gmail.com',
-    port: 587,
-    secure: true,
-    auth: {
-      user: process.env.GMAIL_USERNAME,
-      pass: process.env.GMAIL_PASSWORD
+    const row = {
+      burg: ORDER[i].item == "Beef Sandwich" ? "X" : "",
+      chick: ORDER[i].item == "Chicken Sandwich" ? "X" : "",
+      falafel: ORDER[i].item == "Falafel Sandwich" ? "X" : "",
+      L: ORDER[i].lettuce == true ? "X" : "",
+      T: ORDER[i].tomato == true ? "X" : "", 
+      c: ORDER[i].cucumber == true ? "X" : "",
+      o: ORDER[i].onion == true ? "X" : "",
+      Spicy: ORDER[i].spice,
+      Cheese: ORDER[i].cheese
     }
-  });
-  
-  var mailOptions = {
-    from: process.env.GMAIL_USERNAME,
-    to: process.env.SEND_ORDER_TO_GMAIL,
-    subject: 'NEW ORDER',
-    text: makeEmail()
-  };
-  
-  function makeEmail(){
-    let email = "";
 
-    for(let i = 0; i < ORDER.length; i++){
-      let keys = Object.keys(ORDER[i]);
-      email += `Item: ${ORDER[i].item}\n`
-      if(keys.length != 1){ 
-        let veggies = [];
-        for(let j = 0; j < keys.length; j++){
-          if(keys[j] === "item") continue;
-          function checkVeggies(veggie){
-            if(keys[j] == veggie){
-              veggies.push(veggie);
-              return true
-            }
-            return false
-          }
-          if(checkVeggies("lettuce")) continue
-          if(checkVeggies("tomato"))continue
-          if(checkVeggies("cucumber"))continue
-          if(checkVeggies("onion"))continue
-          email += `${keys[j]}: ${ORDER[i][keys[j]]}\n`
-        }
-        email += `Veggies: ${veggies.join(", ")}\n`
-      }
-      email += "\n"
-    }
-    
-    
-    return email;
+    await promisify(sheet.addRow)(row)
   }
 
-  transporter.sendMail(mailOptions, function(error, info){
-    if (error) {
-      console.log(error);
-    } else {
-      console.log('Email sent: ' + info.response);
-    }
-  });
+}
+
+app.get("/success", (req, res) => {
+  res.sendFile(__dirname + '/public/index.html');
+  accessSpreadsheet()
+
+
+  
 })
+
+//for email put this in app.get("/success", .....
+// var transporter = nodemailer.createTransport({
+//   service: 'smtp.gmail.com',
+//   port: 587,
+//   secure: true,
+//   auth: {
+//     user: process.env.GMAIL_USERNAME,
+//     pass: process.env.GMAIL_PASSWORD
+//   }
+// });
+
+// var mailOptions = {
+//   from: process.env.GMAIL_USERNAME,
+//   to: process.env.SEND_ORDER_TO_GMAIL,
+//   subject: 'NEW ORDER',
+//   text: makeEmail()
+// };
+
+// function makeEmail(){
+//   let email = "";
+
+//   for(let i = 0; i < ORDER.length; i++){
+//     let keys = Object.keys(ORDER[i]);
+//     email += `Item: ${ORDER[i].item}\n`
+//     if(keys.length != 1){ 
+//       let veggies = [];
+//       for(let j = 0; j < keys.length; j++){
+//         if(keys[j] === "item") continue;
+//         function checkVeggies(veggie){
+//           if(keys[j] == veggie){
+//             veggies.push(veggie);
+//             return true
+//           }
+//           return false
+//         }
+//         if(checkVeggies("lettuce")) continue
+//         if(checkVeggies("tomato"))continue
+//         if(checkVeggies("cucumber"))continue
+//         if(checkVeggies("onion"))continue
+//         email += `${keys[j]}: ${ORDER[i][keys[j]]}\n`
+//       }
+//       email += `Veggies: ${veggies.join(", ")}\n`
+//     }
+//     email += "\n"
+//   }
+  
+  
+//   return email;
+// }
+
+// transporter.sendMail(mailOptions, function(error, info){
+//   if (error) {
+//     console.log(error);
+//   } else {
+//     console.log('Email sent: ' + info.response);
+//   }
+// });
 //Port Stuff
 app.listen(process.env.PORT || 3000, () => console.log("We're Online!"))

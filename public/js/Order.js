@@ -14,6 +14,7 @@ function changeSandwichType(type){
     item = type
 }
 function addNonCustomizableItem(itemType){
+    alert(`YOU HAVE ADDED ${itemType.toUpperCase()} TO YOUR CART`)
     item = itemType
     ORDERS.push({item})
     document.getElementById("item_counter").innerHTML = ORDERS.length
@@ -59,6 +60,7 @@ document.getElementById("sandwich_modal_confirm").onclick = () => {
     }else {
         item_details.item = item
         ORDERS.push(item_details)
+        alert(`YOU HAVE ADDED ${item_details.item} TO YOUR CART`)
         document.getElementById("email-form").reset()
         document.getElementById("sandwich_modal_confirm").classList.add("disabled")
         document.getElementById("item_counter").innerHTML = ORDERS.length
@@ -102,6 +104,7 @@ document.getElementById("falafel_modal_confirm").onclick = () => {
     }else {
         item_details.item = item
         ORDERS.push(item_details)
+        alert(`YOU HAVE ADDED ${item_details.item} TO YOUR CART`)
         document.getElementById("email-form").reset()
         document.getElementById("item_counter").innerHTML = ORDERS.length
     }
@@ -150,6 +153,7 @@ document.getElementById("combo1_modal_confirm").onclick = () => {
     }else {
         item_details.item = "Combo 1"
         ORDERS.push(item_details)
+        alert(`YOU HAVE ADDED ${item_details.item.toUpperCase()} TO YOUR CART`)
         document.getElementById("email-form").reset()
         document.getElementById("item_counter").innerHTML = ORDERS.length
     }
@@ -201,6 +205,7 @@ document.getElementById("combo2_modal_confirm").onclick = () => {
     }else {
         item_details.item = "Combo 2"
         ORDERS.push(item_details)
+        alert(`YOU HAVE ADDED ${item_details.item.toUpperCase()} TO YOUR CART`)
         document.getElementById("email-form").reset()
         document.getElementById("item_counter").innerHTML = ORDERS.length
     }
@@ -242,6 +247,7 @@ document.getElementById("combo3_modal_confirm").onclick = () => {
         console.log('items are not all filled out')
     }else {
         item_details.item = "Combo 3"
+        alert(`YOU HAVE ADDED ${item_details.item.toUpperCase()} TO YOUR CART`)
         ORDERS.push(item_details)
         document.getElementById("email-form").reset()
         document.getElementById("item_counter").innerHTML = ORDERS.length
