@@ -124,45 +124,43 @@ app.post("/create-checkout-session", async (req, res) => {
     payment_method_types: ["card"],
     line_items: converted_items,
     mode: "payment",
-    success_url: "http://localhost:3000/success",
-    cancel_url: "https://appletreeexpress.herokuapp.com/order-page.html"
+    success_url: process.env.URL + "/success",
+    cancel_url: process.env.URL + "/order-page.html"
   });
   res.json({ id: session.id });
   
 });
 
-async function accessSpreadsheet(){
-  const doc = new GoogleSpreadsheet("1SeXx9TzKInDGV8rtiYHNI1v0coGpTop3JCiCDTav7LY")
-  await promisify(doc.useServiceAccountAuth)(creds)
-  const info = await promisify(doc.getInfo)()
-  const sheet = info.worksheets[0]
-  console.log(`Title: ${sheet.title}.  Rows: ${sheet.rowCount}`)
-  // console.log(ORDER)
-  for(let i = 0; i < ORDER.length; i++){
 
-    const row = {
-      burg: ORDER[i].item == "Beef Sandwich" ? "X" : "",
-      chick: ORDER[i].item == "Chicken Sandwich" ? "X" : "",
-      falafel: ORDER[i].item == "Falafel Sandwich" ? "X" : "",
-      L: ORDER[i].lettuce == true ? "X" : "",
-      T: ORDER[i].tomato == true ? "X" : "", 
-      c: ORDER[i].cucumber == true ? "X" : "",
-      o: ORDER[i].onion == true ? "X" : "",
-      Spicy: ORDER[i].spice,
-      Cheese: ORDER[i].cheese
-    }
-
-    await promisify(sheet.addRow)(row)
-  }
-
-}
 
 app.get("/success", (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
-  accessSpreadsheet()
-
-
+  async function accessSpreadsheet(){
+    const doc = new GoogleSpreadsheet("1SeXx9TzKInDGV8rtiYHNI1v0coGpTop3JCiCDTav7LY")
+    await promisify(doc.useServiceAccountAuth)(creds)
+    const info = await promisify(doc.getInfo)()
+    const sheet = info.worksheets[0]
+    console.log(`Title: ${sheet.title}.  Rows: ${sheet.rowCount}`)
+    // console.log(ORDER)
+    for(let i = 0; i < ORDER.length; i++){
   
+      const row = {
+        burg: ORDER[i].item == "Beef Sandwich" ? "X" : "",
+        chick: ORDER[i].item == "Chicken Sandwich" ? "X" : "",
+        falafel: ORDER[i].item == "Falafel Sandwich" ? "X" : "",
+        L: ORDER[i].lettuce == true ? "X" : "",
+        T: ORDER[i].tomato == true ? "X" : "", 
+        c: ORDER[i].cucumber == true ? "X" : "",
+        o: ORDER[i].onion == true ? "X" : "",
+        Spicy: ORDER[i].spice,
+        Cheese: ORDER[i].cheese
+      }
+  
+      await promisify(sheet.addRow)(row)
+    }
+  }
+
+  accessSpreadsheet()
 })
 
 //for email put this in app.get("/success", .....
@@ -222,5 +220,6 @@ app.get("/success", (req, res) => {
 //     console.log('Email sent: ' + info.response);
 //   }
 // });
+
 //Port Stuff
 app.listen(process.env.PORT || 3000, () => console.log("We're Online!"))
