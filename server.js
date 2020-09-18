@@ -3,12 +3,17 @@ const express = require("express")
 const bodyParser = require('body-parser');
 const nodemailer = require('nodemailer');
 const GoogleSpreadsheet = require("google-spreadsheet")
-const { promisify } = require("util")
+const { promisify } = require("util");
+const Nexmo = require('nexmo');
 
 const app = express()
 
 const creds = require("./client_secret.json")
-require('dotenv').config()
+require('dotenv').config();
+const nexmo = new Nexmo({
+  apiKey: process.env.NEXMO_API_KEY,
+  apiSecret: process.env.NEXMO_API_SECRET,
+});
 //Set static folder
 app.use(express.static(path.join(__dirname, "public")))
 //I dont know
@@ -51,15 +56,16 @@ app.post("/create-checkout-session", async (req, res) => {
         quantity: 1
       }
     }
+    
   }
 
   // console.log(converted_items)
 
   function isSandwichOrder(item){
-    if(Object.keys(item).length == 1){
-      return false
+    if(Object.keys(item).includes("lettuce")){
+      return true
     }
-    return true
+    return false
   }
   function calculatePrice(item){
     switch(item){
@@ -133,8 +139,15 @@ app.post("/create-checkout-session", async (req, res) => {
 
 
 
-app.get("/success", (req, res) => {
+app.get("/success", async (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
+  const sessions = await stripe.checkout.sessions.list({
+    limit: 1,
+  });
+  console.log(sessions.data[0].customer)
+  const customer = await stripe.customers.retrieve(sessions.data[0].customer);
+  console.log(customer)
+
   async function accessSpreadsheet(){
     const doc = new GoogleSpreadsheet(process.env.SPREADSHEET_URL)
     await promisify(doc.useServiceAccountAuth)(creds)
@@ -145,23 +158,39 @@ app.get("/success", (req, res) => {
     for(let i = 0; i < ORDER.length; i++){
   
       const row = {
-        burg: ORDER[i].item == "Beef Sandwich" ? "X" : "",
-        chick: ORDER[i].item == "Chicken Sandwich" ? "X" : "",
-        falafel: ORDER[i].item == "Falafel Sandwich" ? "X" : "",
+        SandwichName: ORDER[i].name,
+        Burger: ORDER[i].item == "Beef Sandwich" || ORDER[i].sandwichType == "beef sandwich"? "X" : "",
+        Chicken: ORDER[i].item == "Chicken Sandwich" || ORDER[i].sandwichType == "chicken sandwich"? "X" : "",
+        Falafel: ORDER[i].item == "Falafel Sandwich" || ORDER[i].item === "Combo 3" ? "X" : "",
         L: ORDER[i].lettuce == true ? "X" : "",
         T: ORDER[i].tomato == true ? "X" : "", 
-        c: ORDER[i].cucumber == true ? "X" : "",
-        o: ORDER[i].onion == true ? "X" : "",
-        Spicy: ORDER[i].spice,
-        Cheese: ORDER[i].cheese
+        C: ORDER[i].cucumber == true ? "X" : "",
+        O: ORDER[i].onion == true ? "X" : "",
+        Spice: ORDER[i].spice,
+        Cheese: ORDER[i].cheese,
+        Poutine: ORDER[i].item == "Poutine" ? "X" : "",
+        Regular: ORDER[i].item == "Fries" ? "X" : "",
+        Spicy: ORDER[i].item == "Spicy Fries" ? "X" : "",
+        Belgian: ORDER[i].item == "Belgian Fries (garlic)" ||  ORDER[i].item == "Belgian Fries (spicy)"? (ORDER[i].item == "Belgian Fries (garlic)" ? "Garlic" : "Spicy") : "",
+        SRolls: ORDER[i].item == "3 Spring Rolls" ? "3" : "",
+        ComboSide: ORDER[i]["drink"] == undefined && ORDER[i].item.includes("Combo") ? "3 Spring Rolls"  : (ORDER[i].item.includes("Combo") ? `${ORDER[i].side} + ${ORDER[i].drink}` : ""),
+        Brownie: ORDER[i].item == "Brownie" ? "X" : "",
+        Drink: ORDER[i].item == "Cold Pop" ? ORDER[i].drink : "",
+        FalafelPlate: ORDER[i].item == "Chicken and Falafel Plate" ? "X" : ""
       }
   
       await promisify(sheet.addRow)(row)
     }
   }
-
+  nexmo.account.checkBalance((err, result) => {
+    if(result.value.toFixed(2) < 1){
+      nexmo.message.sendSms("15068708278", process.env.NOTIFY_NUMBER, `Low Texting Balance: ${result.value.toFixed(2)}. To Refill Balance on Nexmo: https://dashboard.nexmo.com/payments/new`);
+    }
+  });
   accessSpreadsheet()
+  nexmo.message.sendSms("15068708278", process.env.NOTIFY_NUMBER, "NEW ORDER MADE ONLINE");
 })
+
 
 //for email put this in app.get("/success", .....
 // var transporter = nodemailer.createTransport({

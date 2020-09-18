@@ -19,7 +19,20 @@ function addNonCustomizableItem(itemType){
     ORDERS.push({item})
     document.getElementById("item_counter").innerHTML = ORDERS.length
 }
-
+function addDrink(){
+    const drink_select = document.getElementById("Cold_Pop")
+    if(drink_select.value == "") {
+        alert("You have to choose an option from above. ")
+        return
+    }
+    ORDERS.push({
+        item: "Cold Pop",
+        drink: drink_select.value
+    })
+    drink_select.selectedIndex = 0
+    alert(`YOU HAVE ADDED ${drink_select.value.toUpperCase()} TO YOUR CART`)
+    document.getElementById("item_counter").innerHTML = ORDERS.length
+}
 //Modal Settings
 
 //SANDWICH MODAL
