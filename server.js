@@ -136,7 +136,7 @@ app.post("/create-checkout-session", async (req, res) => {
 app.get("/success", (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
   async function accessSpreadsheet(){
-    const doc = new GoogleSpreadsheet("1SeXx9TzKInDGV8rtiYHNI1v0coGpTop3JCiCDTav7LY")
+    const doc = new GoogleSpreadsheet(process.env.SPREADSHEET_URL)
     await promisify(doc.useServiceAccountAuth)(creds)
     const info = await promisify(doc.getInfo)()
     const sheet = info.worksheets[0]

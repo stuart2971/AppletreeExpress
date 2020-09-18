@@ -151,7 +151,7 @@ document.getElementById("combo1_modal_confirm").onclick = () => {
     if(isBlank(item_details.name) || isBlank(item_details.spice)|| isBlank(item_details.drink)|| isBlank(item_details.sandwichType)|| isBlank(item_details.cheese)){
         console.log('items are not all filled out')
     }else {
-        item_details.item = "Combo 1"
+        item_details.item = "Combo 1";
         ORDERS.push(item_details)
         alert(`YOU HAVE ADDED ${item_details.item.toUpperCase()} TO YOUR CART`)
         document.getElementById("email-form").reset()
