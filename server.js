@@ -7,7 +7,7 @@ const { promisify } = require("util")
 
 const app = express()
 
-const creds = require(JSON.parse(process.env.GCP_KEY_FILE))
+const creds = require("./client_secret.json")
 require('dotenv').config()
 //Set static folder
 app.use(express.static(path.join(__dirname, "public")))
