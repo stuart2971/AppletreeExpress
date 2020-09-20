@@ -24,8 +24,14 @@ app.use(bodyParser.raw());
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 let ORDER = undefined;
+let OPEN = true;
 
 app.post("/create-checkout-session", async (req, res) => {
+  console.log(OPEN)
+  if(!OPEN){
+    res.json({message: "We are not taking online orders at this time.  Please try again Monday - Friday from 9am to 5pm.  "})
+    return;
+  }
   console.log(req.body)
   ORDER = req.body
   let converted_items = []
@@ -68,6 +74,7 @@ app.post("/create-checkout-session", async (req, res) => {
     return false
   }
   function calculatePrice(item){
+    return 50;
     switch(item){
       case "Beef Sandwich":
         return 750
@@ -148,7 +155,7 @@ app.get("/success", async (req, res) => {
   const customer = await stripe.customers.retrieve(sessions.data[0].customer);
   console.log(customer)
 
-  async function accessSpreadsheet(){
+  async function accessSpreadsheet(callback){
     const doc = new GoogleSpreadsheet(process.env.SPREADSHEET_URL)
     await promisify(doc.useServiceAccountAuth)(creds)
     const info = await promisify(doc.getInfo)()
@@ -181,14 +188,19 @@ app.get("/success", async (req, res) => {
   
       await promisify(sheet.addRow)(row)
     }
+    nexmo.account.checkBalance((err, result) => {
+      if(result.value.toFixed(2) < 1){
+        nexmo.message.sendSms("15068708278", process.env.NOTIFY_NUMBER, `Low Texting Balance: ${result.value.toFixed(2)}. To Refill Balance on Nexmo: https://dashboard.nexmo.com/payments/new`);
+      }
+    });
+    nexmo.message.sendSms("15068708278", process.env.NOTIFY_NUMBER, "NEW ORDER MADE ONLINE");
+    callback()
   }
-  nexmo.account.checkBalance((err, result) => {
-    if(result.value.toFixed(2) < 1){
-      nexmo.message.sendSms("15068708278", process.env.NOTIFY_NUMBER, `Low Texting Balance: ${result.value.toFixed(2)}. To Refill Balance on Nexmo: https://dashboard.nexmo.com/payments/new`);
-    }
-  });
-  accessSpreadsheet()
-  nexmo.message.sendSms("15068708278", process.env.NOTIFY_NUMBER, "NEW ORDER MADE ONLINE");
+  
+  accessSpreadsheet(() => {
+    ORDER = undefined;
+  })
+  
 })
 
 
@@ -249,6 +261,18 @@ app.get("/success", async (req, res) => {
 //     console.log('Email sent: ' + info.response);
 //   }
 // });
+
+//Open and Close Routes
+
+app.get(`/OPEN/${process.env.WEBSITE_PASSWORD}`, (req, res) => {
+  OPEN = true;
+  res.send("Website is now open.");
+})
+
+app.get(`/CLOSE/${process.env.WEBSITE_PASSWORD}`, (req, res) => {
+  OPEN = false;
+  res.send("Website is now closed.");
+})
 
 //Port Stuff
 app.listen(process.env.PORT || 3000, () => console.log("We're Online!"))
