@@ -9,6 +9,7 @@ const Nexmo = require('nexmo');
 const app = express()
 
 const creds = require("./client_secret.json")
+let order_number = undefined;
 require('dotenv').config();
 const nexmo = new Nexmo({
   apiKey: process.env.NEXMO_API_KEY,
@@ -27,13 +28,13 @@ let ORDER = undefined;
 let OPEN = true;
 
 app.post("/create-checkout-session", async (req, res) => {
-  console.log(OPEN)
   if(!OPEN){
     res.json({message: "We are not taking online orders at this time.  Please try again Monday - Friday from 9am to 5pm.  "})
     return;
   }
-  console.log(req.body)
-  ORDER = req.body
+  order_number = Math.floor(Math.random() * 10000);
+  ORDER = req.body;
+  
   let converted_items = []
   const order_data = req.body
   for(let i = 0; i < order_data.length; i++){
@@ -64,7 +65,17 @@ app.post("/create-checkout-session", async (req, res) => {
     }
     
   }
-
+  //push order number 
+  converted_items.push({
+    price_data: {
+    currency: "cad",
+    product_data: {
+      name: `Order Number: ${order_number}`, 
+    },
+    unit_amount: "1",
+    },
+    quantity: 1
+  })
   // console.log(converted_items)
 
   function isSandwichOrder(item){
@@ -108,7 +119,6 @@ app.post("/create-checkout-session", async (req, res) => {
         return 200;
     }
   }
-  //and this
   function makeSandwichDescription(order){
     let description = "";
 
@@ -121,8 +131,6 @@ app.post("/create-checkout-session", async (req, res) => {
 
     return description
   }
-
-
   function turnVeggiesIntoArray(order){
     let arr = [];
     if(order.lettuce) arr.push("lettuce")
@@ -131,29 +139,20 @@ app.post("/create-checkout-session", async (req, res) => {
     if(order.onion) arr.push("onion")
     return arr
   }
-
-
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ["card"],
     line_items: converted_items,
     mode: "payment",
-    success_url: process.env.URL + "/success",
+    success_url: `${process.env.URL}/OrderNumber/${order_number}`,
     cancel_url: process.env.URL + "/order-page.html"
   });
+  console.log(session)
   res.json({ id: session.id });
   
 });
 
-
-
-app.get("/success", async (req, res) => {
-  res.sendFile(__dirname + '/public/index.html');
-  const sessions = await stripe.checkout.sessions.list({
-    limit: 1,
-  });
-  console.log(sessions.data[0].customer)
-  const customer = await stripe.customers.retrieve(sessions.data[0].customer);
-  console.log(customer)
+app.get("/OrderNumber/:OrderNum", async (req, res) => {
+  res.sendFile(__dirname + '/public/order-success.html');
 
   async function accessSpreadsheet(callback){
     const doc = new GoogleSpreadsheet(process.env.SPREADSHEET_URL)
@@ -161,7 +160,6 @@ app.get("/success", async (req, res) => {
     const info = await promisify(doc.getInfo)()
     const sheet = info.worksheets[0]
     console.log(`Title: ${sheet.title}.  Rows: ${sheet.rowCount}`)
-    // console.log(ORDER)
     for(let i = 0; i < ORDER.length; i++){
   
       const row = {
@@ -183,7 +181,8 @@ app.get("/success", async (req, res) => {
         ComboSide: ORDER[i]["drink"] == undefined && ORDER[i].item.includes("Combo") ? "3 Spring Rolls"  : (ORDER[i].item.includes("Combo") ? `${ORDER[i].side} + ${ORDER[i].drink}` : ""),
         Brownie: ORDER[i].item == "Brownie" ? "X" : "",
         Drink: ORDER[i].item == "Cold Pop" ? ORDER[i].drink : "",
-        FalafelPlate: ORDER[i].item == "Chicken and Falafel Plate" ? "X" : ""
+        FalafelPlate: ORDER[i].item == "Chicken and Falafel Plate" ? "X" : "",
+        OrderNumber: order_number
       }
   
       await promisify(sheet.addRow)(row)
@@ -196,71 +195,13 @@ app.get("/success", async (req, res) => {
     nexmo.message.sendSms("15068708278", process.env.NOTIFY_NUMBER, "NEW ORDER MADE ONLINE");
     callback()
   }
-  
+
   accessSpreadsheet(() => {
     ORDER = undefined;
   })
   
 })
 
-
-//for email put this in app.get("/success", .....
-// var transporter = nodemailer.createTransport({
-//   service: 'smtp.gmail.com',
-//   port: 587,
-//   secure: true,
-//   auth: {
-//     user: process.env.GMAIL_USERNAME,
-//     pass: process.env.GMAIL_PASSWORD
-//   }
-// });
-
-// var mailOptions = {
-//   from: process.env.GMAIL_USERNAME,
-//   to: process.env.SEND_ORDER_TO_GMAIL,
-//   subject: 'NEW ORDER',
-//   text: makeEmail()
-// };
-
-// function makeEmail(){
-//   let email = "";
-
-//   for(let i = 0; i < ORDER.length; i++){
-//     let keys = Object.keys(ORDER[i]);
-//     email += `Item: ${ORDER[i].item}\n`
-//     if(keys.length != 1){ 
-//       let veggies = [];
-//       for(let j = 0; j < keys.length; j++){
-//         if(keys[j] === "item") continue;
-//         function checkVeggies(veggie){
-//           if(keys[j] == veggie){
-//             veggies.push(veggie);
-//             return true
-//           }
-//           return false
-//         }
-//         if(checkVeggies("lettuce")) continue
-//         if(checkVeggies("tomato"))continue
-//         if(checkVeggies("cucumber"))continue
-//         if(checkVeggies("onion"))continue
-//         email += `${keys[j]}: ${ORDER[i][keys[j]]}\n`
-//       }
-//       email += `Veggies: ${veggies.join(", ")}\n`
-//     }
-//     email += "\n"
-//   }
-  
-  
-//   return email;
-// }
-
-// transporter.sendMail(mailOptions, function(error, info){
-//   if (error) {
-//     console.log(error);
-//   } else {
-//     console.log('Email sent: ' + info.response);
-//   }
-// });
 
 //Open and Close Routes
 

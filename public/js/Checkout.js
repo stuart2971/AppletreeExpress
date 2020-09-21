@@ -6,12 +6,10 @@ function goToCheckout(){
 
 
 // Stripe stuff
-var stripe = Stripe('pk_live_51HPrfXFFjnckJleAiwr0q3ILtswZHasIZsSqvlSsMoyA0qpKtkU2iX9Dc7cVxZzUDRTmb67PzS4Ewezr1d09cZHq0039fHaMRO');
+var stripe = Stripe('pk_test_51HPrfXFFjnckJleAtAsVlq5YqKYOOaM6Lo9kMYDx5b8R5oaLuEeAsIFT96sR3w1snbaqkrA0MJMTMjF6WMfoUFvZ00PMv6zPhX');
 var checkoutButton = document.getElementById('checkout-button');
 
 checkoutButton.addEventListener('click', function() {
-  // Create a new Checkout Session using the server-side endpoint you
-  // created in step 3.
   fetch('/create-checkout-session', {
     method: 'POST',
     mode: 'cors', // no-cors, *cors, same-origin
@@ -33,6 +31,7 @@ checkoutButton.addEventListener('click', function() {
       alert(session.message)
       return
     }
+    console.log(document.getElementById("email-fieldset"))
     return stripe.redirectToCheckout({ sessionId: session.id });
   })
   .then(function(result) {
