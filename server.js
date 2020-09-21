@@ -85,7 +85,6 @@ app.post("/create-checkout-session", async (req, res) => {
     return false
   }
   function calculatePrice(item){
-    return 50;
     switch(item){
       case "Beef Sandwich":
         return 750
