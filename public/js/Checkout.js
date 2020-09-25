@@ -31,7 +31,7 @@ checkoutButton.addEventListener('click', function() {
       alert(session.message)
       return
     }
-    console.log(document.getElementById("email-fieldset"))
+    window.location.href = "/success/" + session.id;
     return stripe.redirectToCheckout({ sessionId: session.id });
   })
   .then(function(result) {

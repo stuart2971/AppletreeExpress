@@ -67,17 +67,6 @@ app.post("/create-checkout-session", async (req, res) => {
     }
     
   }
-  //push order number 
-  converted_items.push({
-    price_data: {
-    currency: "cad",
-    product_data: {
-      name: `Order Number: ${order_number}`, 
-    },
-    unit_amount: "1",
-    },
-    quantity: 1
-  })
   // console.log(converted_items)
 
   function isSandwichOrder(item){
@@ -140,12 +129,11 @@ app.post("/create-checkout-session", async (req, res) => {
     if(order.onion) arr.push("onion")
     return arr
   }
-  let id = Math.floor(Math.random() * 900000)
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ["card"],
     line_items: converted_items,
     mode: "payment",
-    success_url: process.env.URL + `/success/` + id,
+    success_url: process.env.URL + `/success`,
     cancel_url: process.env.URL + `/order-page.html`,
     billing_address_collection: 'required', 
   });
@@ -156,9 +144,10 @@ app.post("/create-checkout-session", async (req, res) => {
 
 app.get("/success/:id", async (req, res) => {
   res.sendFile(__dirname + '/public/order-success.html');
+  console.log(ORDER);
   if(ORDER == undefined || orderId == undefined) return;
 
-  const session = await stripe.checkout.sessions.retrieve(orderId, {
+  const session = await stripe.checkout.sessions.retrieve(req.body.id, {
     expand: ['customer', 'payment_intent'],
   });
 
@@ -168,6 +157,7 @@ app.get("/success/:id", async (req, res) => {
     const info = await promisify(doc.getInfo)()
     const sheet = info.worksheets[0]
     console.log(`Title: ${sheet.title}.  Rows: ${sheet.rowCount}`)
+
     for(let i = 0; i < ORDER.length; i++){
       const row = {
         SandwichName: ORDER[i].name,
