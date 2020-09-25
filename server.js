@@ -160,8 +160,7 @@ app.get("/success", async (req, res) => {
   const session = await stripe.checkout.sessions.retrieve(orderId, {
     expand: ['customer', 'payment_intent'],
   });
-  let PaymentName = session.payment_intent.charges.data[0].billing_details.name
-  
+
   async function accessSpreadsheet(callback){
     const doc = new GoogleSpreadsheet(process.env.SPREADSHEET_URL)
     await promisify(doc.useServiceAccountAuth)(creds)
@@ -189,7 +188,7 @@ app.get("/success", async (req, res) => {
         Brownie: ORDER[i].item == "Brownie" ? "X" : "",
         Drink: ORDER[i].item == "Cold Pop" ? ORDER[i].drink : "",
         FalafelPlate: ORDER[i].item == "Chicken and Falafel Plate" ? "X" : "",
-        Name: PaymentName,
+        Name: session.payment_intent.charges.data[0].billing_details.name,
 
       }
   
@@ -207,7 +206,6 @@ app.get("/success", async (req, res) => {
   accessSpreadsheet(() => {
     ORDER = undefined;
     orderId = undefined;
-    PaymentName = undefined;
   })
   
 })
