@@ -144,7 +144,7 @@ app.post("/create-checkout-session", async (req, res) => {
     payment_method_types: ["card"],
     line_items: converted_items,
     mode: "payment",
-    success_url: `${process.env.URL}/order-success.html`,
+    success_url: `/success`,
     cancel_url: `${process.env.URL}/order-page.html`,
     billing_address_collection: 'required', 
   });
@@ -153,8 +153,7 @@ app.post("/create-checkout-session", async (req, res) => {
   
 });
 
-
-app.get("/sucess", async (req, res) => {
+app.get("/success", async (req, res) => {
   res.sendFile(__dirname + '/public/order-success.html');
   if(ORDER == undefined || orderId == undefined) return;
   const session = await stripe.checkout.sessions.retrieve(
