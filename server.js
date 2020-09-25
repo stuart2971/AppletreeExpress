@@ -156,14 +156,12 @@ app.post("/create-checkout-session", async (req, res) => {
 app.get("/success", async (req, res) => {
   res.sendFile(__dirname + '/public/order-success.html');
   if(ORDER == undefined || orderId == undefined) return;
-  const session = await stripe.checkout.sessions.retrieve(
-    orderId,
-    {
-      expand: ['customer', 'payment_intent'],
-    }
-  );
-  console.log(session.payment_intent.charges.data[0].billing_details.name);
+
+  const session = await stripe.checkout.sessions.retrieve(orderId, {
+    expand: ['customer', 'payment_intent'],
+  });
   let PaymentName = session.payment_intent.charges.data[0].billing_details.name
+  
   async function accessSpreadsheet(callback){
     const doc = new GoogleSpreadsheet(process.env.SPREADSHEET_URL)
     await promisify(doc.useServiceAccountAuth)(creds)
@@ -209,6 +207,7 @@ app.get("/success", async (req, res) => {
   accessSpreadsheet(() => {
     ORDER = undefined;
     orderId = undefined;
+    PaymentName = undefined;
   })
   
 })
