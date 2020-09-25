@@ -145,7 +145,7 @@ app.post("/create-checkout-session", async (req, res) => {
     line_items: converted_items,
     mode: "payment",
     success_url: `/success`,
-    cancel_url: `${process.env.URL}/order-page.html`,
+    cancel_url: `/order-page.html`,
     billing_address_collection: 'required', 
   });
   orderId = session.id;
