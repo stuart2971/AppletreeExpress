@@ -1,10 +1,3 @@
-//ORDERS is in Order.js
-
-function goToCheckout(){
-    console.log(ORDERS)
-}
-
-
 // Stripe stuff
 var stripe = Stripe('pk_test_51HPrfXFFjnckJleAtAsVlq5YqKYOOaM6Lo9kMYDx5b8R5oaLuEeAsIFT96sR3w1snbaqkrA0MJMTMjF6WMfoUFvZ00PMv6zPhX');
 var checkoutButton = document.getElementById('checkout-button');
@@ -31,7 +24,6 @@ checkoutButton.addEventListener('click', function() {
       alert(session.message)
       return
     }
-    window.location.href = "/success/" + session.id;
     return stripe.redirectToCheckout({ sessionId: session.id });
   })
   .then(function(result) {

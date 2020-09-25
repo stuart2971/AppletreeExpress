@@ -25,7 +25,6 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 let ORDER = undefined;
 let OPEN = true;
-let order_number = undefined;
 let orderId = undefined;
 
 app.post("/create-checkout-session", async (req, res) => {
@@ -33,8 +32,6 @@ app.post("/create-checkout-session", async (req, res) => {
     res.json({message: "We are not taking online orders at this time.  Please try again Monday - Friday from 9am to 5pm.  "})
     return;
   }
-  orderId = undefined;
-  order_number = Math.floor(Math.random() * 10000);
   ORDER = req.body;
   
   let converted_items = []
@@ -133,21 +130,21 @@ app.post("/create-checkout-session", async (req, res) => {
     payment_method_types: ["card"],
     line_items: converted_items,
     mode: "payment",
-    success_url: process.env.URL + `/success`,
+    success_url: process.env.URL + `/success/` + Math.floor(Math.random() * 100000),
     cancel_url: process.env.URL + `/order-page.html`,
     billing_address_collection: 'required', 
   });
-  orderId = session.id;
+  orderId = session.id
   res.json({ id: session.id });
   
 });
 
 app.get("/success/:id", async (req, res) => {
   res.sendFile(__dirname + '/public/order-success.html');
-  console.log(ORDER);
+  console.log(ORDER, orderId, req.params.id);
   if(ORDER == undefined || orderId == undefined) return;
 
-  const session = await stripe.checkout.sessions.retrieve(req.body.id, {
+  const paymentDetails = await stripe.checkout.sessions.retrieve(orderId, {
     expand: ['customer', 'payment_intent'],
   });
 
@@ -179,26 +176,21 @@ app.get("/success/:id", async (req, res) => {
         Brownie: ORDER[i].item == "Brownie" ? "X" : "",
         Drink: ORDER[i].item == "Cold Pop" ? ORDER[i].drink : "",
         FalafelPlate: ORDER[i].item == "Chicken and Falafel Plate" ? "X" : "",
-        Name: session.payment_intent.charges.data[0].billing_details.name,
-
+        Name: paymentDetails.payment_intent.charges.data[0].billing_details.name
       }
-  
       await promisify(sheet.addRow)(row)
     }
+    ORDER = undefined;
+    orderId = undefined;
     nexmo.account.checkBalance((err, result) => {
       if(result.value.toFixed(2) < 1){
         nexmo.message.sendSms("15068708278", process.env.NOTIFY_NUMBER, `Low Texting Balance: ${result.value.toFixed(2)}. To Refill Balance on Nexmo: https://dashboard.nexmo.com/payments/new`);
       }
     });
     nexmo.message.sendSms("15068708278", process.env.NOTIFY_NUMBER, "NEW ORDER MADE ONLINE");
-    callback()
   }
 
-  accessSpreadsheet(() => {
-    ORDER = undefined;
-    orderId = undefined;
-  })
-  
+  accessSpreadsheet()
 })
 
 
