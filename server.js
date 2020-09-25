@@ -1,10 +1,11 @@
 const path = require("path")
 const express = require("express")
 const bodyParser = require('body-parser');
-const nodemailer = require('nodemailer');
 const GoogleSpreadsheet = require("google-spreadsheet")
 const { promisify } = require("util");
 const Nexmo = require('nexmo');
+const queryString = require('query-string');
+
 
 const app = express()
 
@@ -23,17 +24,14 @@ app.use(bodyParser.raw());
 //Stripe Stuff
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-let ORDER = undefined;
+// let ORDER = undefined;
 let OPEN = true;
 let orderId = undefined;
-
 app.post("/create-checkout-session", async (req, res) => {
   if(!OPEN){
     res.json({message: "We are not taking online orders at this time.  Please try again Monday - Friday from 9am to 5pm.  "})
     return;
-  }
-  ORDER = req.body;
-  
+  }  
   let converted_items = []
   const order_data = req.body
   for(let i = 0; i < order_data.length; i++){
@@ -64,8 +62,8 @@ app.post("/create-checkout-session", async (req, res) => {
     }
     
   }
-  // console.log(converted_items)
-
+  console.log(order_data)
+  // ORDER = req.body
   function isSandwichOrder(item){
     if(Object.keys(item).includes("lettuce")){
       return true
@@ -130,70 +128,83 @@ app.post("/create-checkout-session", async (req, res) => {
     payment_method_types: ["card"],
     line_items: converted_items,
     mode: "payment",
-    success_url: process.env.URL + `/success/` + Math.floor(Math.random() * 100000),
+    success_url: process.env.URL + "/order-success.html",
     cancel_url: process.env.URL + `/order-page.html`,
     billing_address_collection: 'required', 
   });
-  orderId = session.id
-  res.json({ id: session.id });
+  
+  res.json({ id: session.id, order: req.body });
   
 });
 
-app.get("/success/:id", async (req, res) => {
-  res.sendFile(__dirname + '/public/order-success.html');
-  console.log(ORDER, orderId, req.params.id);
-  if(ORDER == undefined || orderId == undefined) return;
-
-  const paymentDetails = await stripe.checkout.sessions.retrieve(orderId, {
+app.post("/addToSpreadsheet", async (req, res) => {
+  console.log(req.body)
+  const paymentDetails = await stripe.checkout.sessions.retrieve(req.body.id, {
     expand: ['customer', 'payment_intent'],
   });
+  console.log(paymentDetails)
+  // let name = paymentDetails.payment_intent.charges.data[0].billing_details.name
+  // async function accessSpreadsheet(){
+  //   const doc = new GoogleSpreadsheet(process.env.SPREADSHEET_URL)
+  //   await promisify(doc.useServiceAccountAuth)(creds)
+  //   const info = await promisify(doc.getInfo)()
+  //   const sheet = info.worksheets[0]
+  //   console.log(`Title: ${sheet.title}.  Rows: ${sheet.rowCount}`)
 
-  async function accessSpreadsheet(callback){
-    const doc = new GoogleSpreadsheet(process.env.SPREADSHEET_URL)
-    await promisify(doc.useServiceAccountAuth)(creds)
-    const info = await promisify(doc.getInfo)()
-    const sheet = info.worksheets[0]
-    console.log(`Title: ${sheet.title}.  Rows: ${sheet.rowCount}`)
+  //   for(let i = 0; i < ORDER.length; i++){
+  //     const row = {
+  //       SandwichName: ORDER[i].name,
+  //       Burger: ORDER[i].item == "Beef Sandwich" || ORDER[i].sandwichType == "beef sandwich"? "X" : "",
+  //       Chicken: ORDER[i].item == "Chicken Sandwich" || ORDER[i].sandwichType == "chicken sandwich"? "X" : "",
+  //       Falafel: ORDER[i].item == "Falafel Sandwich" || ORDER[i].item === "Combo 3" ? "X" : "",
+  //       L: ORDER[i].lettuce == true ? "X" : "",
+  //       T: ORDER[i].tomato == true ? "X" : "", 
+  //       C: ORDER[i].cucumber == true ? "X" : "",
+  //       O: ORDER[i].onion == true ? "X" : "",
+  //       Spice: ORDER[i].spice,
+  //       Cheese: ORDER[i].cheese,
+  //       Poutine: ORDER[i].item == "Poutine" ? "X" : "",
+  //       Regular: ORDER[i].item == "Fries" ? "X" : "",
+  //       Spicy: ORDER[i].item == "Spicy Fries" ? "X" : "",
+  //       Belgian: ORDER[i].item == "Belgian Fries (garlic)" ||  ORDER[i].item == "Belgian Fries (spicy)"? (ORDER[i].item == "Belgian Fries (garlic)" ? "Garlic" : "Spicy") : "",
+  //       SRolls: ORDER[i].item == "3 Spring Rolls" ? "3" : "",
+  //       ComboSide: ORDER[i]["drink"] == undefined && ORDER[i].item.includes("Combo") ? "3 Spring Rolls"  : (ORDER[i].item.includes("Combo") ? `${ORDER[i].side} + ${ORDER[i].drink}` : ""),
+  //       Brownie: ORDER[i].item == "Brownie" ? "X" : "",
+  //       Drink: ORDER[i].item == "Cold Pop" ? ORDER[i].drink : "",
+  //       FalafelPlate: ORDER[i].item == "Chicken and Falafel Plate" ? "X" : "",
+  //       Name: name
+  //     }
+  //     await promisify(sheet.addRow)(row)
+  //   }
+  //   nexmo.account.checkBalance((err, result) => {
+  //     if(result.value.toFixed(2) < 1){
+  //       nexmo.message.sendSms("15068708278", process.env.NOTIFY_NUMBER, `Low Texting Balance: ${result.value.toFixed(2)}. To Refill Balance on Nexmo: https://dashboard.nexmo.com/payments/new`);
+  //     }
+  //   });
+  //   nexmo.message.sendSms("15068708278", process.env.NOTIFY_NUMBER, "NEW ORDER MADE ONLINE");
+  // }
 
-    for(let i = 0; i < ORDER.length; i++){
-      const row = {
-        SandwichName: ORDER[i].name,
-        Burger: ORDER[i].item == "Beef Sandwich" || ORDER[i].sandwichType == "beef sandwich"? "X" : "",
-        Chicken: ORDER[i].item == "Chicken Sandwich" || ORDER[i].sandwichType == "chicken sandwich"? "X" : "",
-        Falafel: ORDER[i].item == "Falafel Sandwich" || ORDER[i].item === "Combo 3" ? "X" : "",
-        L: ORDER[i].lettuce == true ? "X" : "",
-        T: ORDER[i].tomato == true ? "X" : "", 
-        C: ORDER[i].cucumber == true ? "X" : "",
-        O: ORDER[i].onion == true ? "X" : "",
-        Spice: ORDER[i].spice,
-        Cheese: ORDER[i].cheese,
-        Poutine: ORDER[i].item == "Poutine" ? "X" : "",
-        Regular: ORDER[i].item == "Fries" ? "X" : "",
-        Spicy: ORDER[i].item == "Spicy Fries" ? "X" : "",
-        Belgian: ORDER[i].item == "Belgian Fries (garlic)" ||  ORDER[i].item == "Belgian Fries (spicy)"? (ORDER[i].item == "Belgian Fries (garlic)" ? "Garlic" : "Spicy") : "",
-        SRolls: ORDER[i].item == "3 Spring Rolls" ? "3" : "",
-        ComboSide: ORDER[i]["drink"] == undefined && ORDER[i].item.includes("Combo") ? "3 Spring Rolls"  : (ORDER[i].item.includes("Combo") ? `${ORDER[i].side} + ${ORDER[i].drink}` : ""),
-        Brownie: ORDER[i].item == "Brownie" ? "X" : "",
-        Drink: ORDER[i].item == "Cold Pop" ? ORDER[i].drink : "",
-        FalafelPlate: ORDER[i].item == "Chicken and Falafel Plate" ? "X" : "",
-        Name: paymentDetails.payment_intent.charges.data[0].billing_details.name
-      }
-      await promisify(sheet.addRow)(row)
-    }
-    ORDER = undefined;
-    orderId = undefined;
-    nexmo.account.checkBalance((err, result) => {
-      if(result.value.toFixed(2) < 1){
-        nexmo.message.sendSms("15068708278", process.env.NOTIFY_NUMBER, `Low Texting Balance: ${result.value.toFixed(2)}. To Refill Balance on Nexmo: https://dashboard.nexmo.com/payments/new`);
-      }
-    });
-    nexmo.message.sendSms("15068708278", process.env.NOTIFY_NUMBER, "NEW ORDER MADE ONLINE");
-  }
-
-  accessSpreadsheet()
+  // accessSpreadsheet()
 })
 
 
+//Stripe Webhooks
+const endpointSecret = 'whsec_eQIJBVlhNkGzJiU35oljpu1Lvdy2waw8';
+
+app.post('https://appletreeexpress.herokuapp.com/webhook', bodyParser.raw({type: 'application/json'}), (request, response) => {
+  const payload = request.body;
+  const sig = request.headers['stripe-signature'];
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(payload, sig, endpointSecret);
+  } catch (err) {
+    return response.status(400).send(`Webhook Error: ${err.message}`);
+  }
+  console.log(payload)
+  response.status(200);
+});
 //Open and Close Routes
 
 app.get(`/OPEN/${process.env.WEBSITE_PASSWORD}`, (req, res) => {
