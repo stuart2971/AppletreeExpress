@@ -9,7 +9,6 @@ const Nexmo = require('nexmo');
 const app = express()
 
 const creds = require("./client_secret.json")
-let order_number = undefined;
 require('dotenv').config();
 const nexmo = new Nexmo({
   apiKey: process.env.NEXMO_API_KEY,
@@ -26,12 +25,15 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 let ORDER = undefined;
 let OPEN = true;
+let order_number = undefined;
+let orderId = undefined;
 
 app.post("/create-checkout-session", async (req, res) => {
   if(!OPEN){
     res.json({message: "We are not taking online orders at this time.  Please try again Monday - Friday from 9am to 5pm.  "})
     return;
   }
+  orderId = undefined;
   order_number = Math.floor(Math.random() * 10000);
   ORDER = req.body;
   
@@ -142,17 +144,27 @@ app.post("/create-checkout-session", async (req, res) => {
     payment_method_types: ["card"],
     line_items: converted_items,
     mode: "payment",
-    success_url: `${process.env.URL}/OrderNumber/${order_number}`,
-    cancel_url: process.env.URL + "/order-page.html"
+    success_url: `${process.env.URL}/order-success.html`,
+    cancel_url: `${process.env.URL}/order-page.html`,
+    billing_address_collection: 'required', 
   });
-  console.log(session)
+  orderId = session.id;
   res.json({ id: session.id });
   
 });
 
-app.get("/OrderNumber/:OrderNum", async (req, res) => {
-  res.sendFile(__dirname + '/public/order-success.html');
 
+app.get("/sucess", async (req, res) => {
+  res.sendFile(__dirname + '/public/order-success.html');
+  if(ORDER == undefined || orderId == undefined) return;
+  const session = await stripe.checkout.sessions.retrieve(
+    orderId,
+    {
+      expand: ['customer', 'payment_intent'],
+    }
+  );
+  console.log(session.payment_intent.charges.data[0].billing_details.name);
+  let PaymentName = session.payment_intent.charges.data[0].billing_details.name
   async function accessSpreadsheet(callback){
     const doc = new GoogleSpreadsheet(process.env.SPREADSHEET_URL)
     await promisify(doc.useServiceAccountAuth)(creds)
@@ -160,7 +172,6 @@ app.get("/OrderNumber/:OrderNum", async (req, res) => {
     const sheet = info.worksheets[0]
     console.log(`Title: ${sheet.title}.  Rows: ${sheet.rowCount}`)
     for(let i = 0; i < ORDER.length; i++){
-  
       const row = {
         SandwichName: ORDER[i].name,
         Burger: ORDER[i].item == "Beef Sandwich" || ORDER[i].sandwichType == "beef sandwich"? "X" : "",
@@ -181,7 +192,8 @@ app.get("/OrderNumber/:OrderNum", async (req, res) => {
         Brownie: ORDER[i].item == "Brownie" ? "X" : "",
         Drink: ORDER[i].item == "Cold Pop" ? ORDER[i].drink : "",
         FalafelPlate: ORDER[i].item == "Chicken and Falafel Plate" ? "X" : "",
-        OrderNumber: order_number
+        Name: PaymentName,
+
       }
   
       await promisify(sheet.addRow)(row)
@@ -197,6 +209,7 @@ app.get("/OrderNumber/:OrderNum", async (req, res) => {
 
   accessSpreadsheet(() => {
     ORDER = undefined;
+    orderId = undefined;
   })
   
 })
