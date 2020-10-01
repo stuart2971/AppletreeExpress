@@ -25,13 +25,6 @@ checkoutButton.addEventListener('click', function() {
       alert(session.message)
       return
     }
-    fetch('/addToSpreadsheet', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({id: session.id, order: session.order})
-    })
     return stripe.redirectToCheckout({ sessionId: session.id });
   })
   .then(function(result) {
