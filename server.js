@@ -4,14 +4,12 @@ const bodyParser = require('body-parser');
 const GoogleSpreadsheet = require("google-spreadsheet")
 const { promisify } = require("util");
 const Nexmo = require('nexmo');
-const queryString = require('query-string');
 const MongoClient = require('mongodb').MongoClient;
 
 
 const app = express()
 
 const creds = require("./client_secret.json");
-const { Session } = require("inspector");
 const { ObjectId, ObjectID } = require("mongodb");
 require('dotenv').config();
 const nexmo = new Nexmo({
@@ -27,13 +25,25 @@ app.use(bodyParser.raw());
 //Stripe Stuff
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-// let ORDER = undefined;
-let OPEN = true;
 app.post("/create-checkout-session", async(req, res) => {
+    async function checkIfOpen() {
+        return new Promise(resolve => {
+            MongoClient.connect(process.env.MONGODB_URI, function(err, db) {
+                if (err) throw err;
+                var dbo = db.db("AppletreeExpress");
+                dbo.collection("Settings").find().toArray(function(err, result) {
+                    if (err) throw err;
+                    resolve(result[0].OPEN)
+                });
+            });
+        })
+    }
+    let OPEN = await checkIfOpen();
     if (!OPEN) {
-        res.json({ message: "We are not taking online orders at this time.  Please try again Monday - Friday from 9am to 5pm.  " })
+        res.json({ message: "We are currently not taking orders at this time.  Please try again from Monday to Friday from 9:00am - 5:00pm" })
         return;
     }
+
     let converted_items = []
     const order_data = req.body
     for (let i = 0; i < order_data.length; i++) {
@@ -65,7 +75,7 @@ app.post("/create-checkout-session", async(req, res) => {
 
     }
     console.log(order_data)
-        // ORDER = req.body
+
     function isSandwichOrder(item) {
         if (Object.keys(item).includes("lettuce")) {
             return true
@@ -155,7 +165,6 @@ app.post("/create-checkout-session", async(req, res) => {
         billing_address_collection: 'required',
         metadata: { 'orderId': `${orderId}` }
     });
-
     res.json({ id: session.id });
 
 });
@@ -248,13 +257,26 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), (request, res
 
 //Open and Close Routes
 
-app.get(`/OPEN/${process.env.WEBSITE_PASSWORD}`, (req, res) => {
-    OPEN = true;
+async function ChangeSetting(isOpen) {
+    return new Promise(resolve => {
+        MongoClient.connect(process.env.MONGODB_URI, function(err, db) {
+            if (err) throw err;
+            var dbo = db.db("AppletreeExpress");
+            dbo.collection("Settings").updateOne({ _id: ObjectId("5f83b1348ca1bee2b5603ad5") }, { $set: { OPEN: isOpen } }, () => {
+                console.log(`Changed store to ${isOpen ? "open" : "closed"}`)
+                resolve()
+            })
+        });
+    })
+}
+
+app.get(`/OPEN/${process.env.WEBSITE_PASSWORD}`, async(req, res) => {
+    await ChangeSetting(true)
     res.send("Website is now open.");
 })
 
-app.get(`/CLOSE/${process.env.WEBSITE_PASSWORD}`, (req, res) => {
-    OPEN = false;
+app.get(`/CLOSE/${process.env.WEBSITE_PASSWORD}`, async(req, res) => {
+    await ChangeSetting(false)
     res.send("Website is now closed.");
 })
 
